@@ -1,13 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import AuthLayout from '@/components/AuthLayout';
+import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const router = useRouter();
 
   const strength = (() => {
     const p = form.password;
@@ -24,13 +28,22 @@ export default function SignupPage() {
   const strengthColor = ['', '#ef4444', '#f97316', '#eab308', '#22c55e'][strength];
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    // TODO: connect your auth logic here
-    await new Promise(r => setTimeout(r, 1200));
+  e.preventDefault();
+  setLoading(true);
+  setError('');
+
+  const { error } = await supabase.auth.signUp({
+    email: form.email,
+    password: form.password,
+    options: {
+      data: { full_name: form.name }
+    }
+    });
+
+    if (error) setError(error.message);
+    else router.push('/login'); 
     setLoading(false);
   };
-
   return (
     <AuthLayout>
       <div className="auth-header">
@@ -75,6 +88,10 @@ export default function SignupPage() {
             </div>
           )}
         </div>
+
+        {error && (
+          <p style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center' }}>{error}</p>
+        )}
 
         <button type="submit" className={`btn-primary ${loading ? 'loading' : ''}`} disabled={loading}>
           {loading ? <span className="spinner" /> : 'Create account'}

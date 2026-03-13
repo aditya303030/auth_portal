@@ -1,19 +1,31 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import AuthLayout from '@/components/AuthLayout';
+import { useRouter } from 'next/navigation';
+
 
 export default function LoginPage() {
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // TODO: connect your auth logic here
-    await new Promise(r => setTimeout(r, 1200));
+    setError('');
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.password,
+    });
+
+    if (error) setError(error.message);
+    else router.push('/dashboard');
     setLoading(false);
   };
 
@@ -46,6 +58,10 @@ export default function LoginPage() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <p style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center' }}>{error}</p>
+        )}
 
         <button type="submit" className={`btn-primary ${loading ? 'loading' : ''}`} disabled={loading}>
           {loading ? <span className="spinner" /> : 'Sign in'}
