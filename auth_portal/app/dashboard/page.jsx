@@ -261,7 +261,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="field-group">
-                    <label>Max Days Until Close — <span className="range-val">{form.max_age_days} days</span></label>
+                    <label>Max Days Until Close: <span className="range-val">{form.max_age_days} days</span></label>
                     <div className="range-row">
                       <input
                         type="range" min="7" max="365" step="7"
@@ -273,7 +273,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="field-group">
-                    <label>Results to Return — <span className="range-val">{form.top_k}</span></label>
+                    <label>Results to Return: <span className="range-val">{form.top_k}</span></label>
                     <div className="range-row">
                       <input
                         type="range" min="5" max="50" step="5"
