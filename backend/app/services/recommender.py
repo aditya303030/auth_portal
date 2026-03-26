@@ -77,12 +77,30 @@ def _location_score(location: str, location_keywords: str) -> float:
     return hits / len(tokens)
 
 
+def _past_performance_text(past_performance) -> str:
+    """Extract text from past performance items for TF-IDF matching."""
+    if not past_performance:
+        return ""
+    
+    parts = []
+    for item in past_performance:
+        # Handle both dict and object attribute access
+        client = item.get("client") if isinstance(item, dict) else getattr(item, "client", "")
+        title = item.get("project_title") if isinstance(item, dict) else getattr(item, "project_title", "")
+        scope = item.get("scope") if isinstance(item, dict) else getattr(item, "scope", "")
+        
+        if client or title or scope:
+            parts.append(f"{client} {title} {scope}".strip())
+    
+    return " ".join(parts).strip()
+
+
 def recommend_rfps(
     rfps: List[RFPish],
     profile,
     *,
     now: Optional[datetime] = None,
-    weights: Tuple[float, float, float, float] = (0.60, 0.25, 0.10, 0.05),
+    weights: Tuple[float, float, float, float, float] = (0.50, 0.20, 0.15, 0.10, 0.05),
 ) -> List[Dict[str, Any]]:
     if now is None:
         now = datetime.now()
@@ -120,7 +138,18 @@ def recommend_rfps(
 
         corpus.append(" ".join([str(title), str(desc), str(loc), " ".join([t for t in tags if t])]).strip())
 
-    query = (profile.company_description or "").strip()
+    # Build query from company description + past performance
+    query_parts = []
+    
+    company_desc = (profile.company_description or "").strip()
+    if company_desc:
+        query_parts.append(company_desc)
+    
+    past_perf = _past_performance_text(getattr(profile, 'past_performance', []) or [])
+    if past_perf:
+        query_parts.append(past_perf)
+    
+    query = " ".join(query_parts).strip()
 
     if query:
         vectorizer = TfidfVectorizer(
@@ -134,7 +163,7 @@ def recommend_rfps(
     else:
         sims = np.zeros(len(filtered), dtype=float)
 
-    w_text, w_rec, w_tag, w_loc = weights
+    w_text, w_rec, w_tag, w_loc, w_past = weights
     results: List[Dict[str, Any]] = []
 
     for i, r in enumerate(filtered):
@@ -148,7 +177,9 @@ def recommend_rfps(
         tag = _tag_score(tags, profile.selected_tags)
         loc = _location_score(loc_str, profile.location_keywords)
 
-        score = float(w_text * sims[i] + w_rec * rec + w_tag * tag + w_loc * loc)
+        # Past performance contributes to the text similarity score
+        # (already blended in via TF-IDF query with past performance text)
+        score = float(w_text * sims[i] + w_rec * rec + w_tag * tag + w_loc * loc + w_past * sims[i])
 
         rid = _get(r, "id", "") if not isinstance(r, dict) else (str(r.get("externalid") or r.get("id") or ""))
         title = _get(r, "title", "") if not isinstance(r, dict) else (r.get("shortdesc") or r.get("title") or "")

@@ -67,6 +67,28 @@ export default function DashboardPage() {
       : [...form.certifications, cert]);
   };
 
+  const addProject = () => {
+    if (form.past_performance.length < 3) {
+      set('past_performance', [...form.past_performance, {
+        client: '',
+        project_title: '',
+        scope: '',
+        completion_year: new Date().getFullYear(),
+        contract_value: '',
+      }]);
+    }
+  };
+
+  const updateProject = (idx, field, value) => {
+    const updated = [...form.past_performance];
+    updated[idx] = { ...updated[idx], [field]: value };
+    set('past_performance', updated);
+  };
+
+  const removeProject = (idx) => {
+    set('past_performance', form.past_performance.filter((_, i) => i !== idx));
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
@@ -221,6 +243,82 @@ export default function DashboardPage() {
                     />
                   </div>
                 </div>
+
+                <div className="divider" />
+                <p className="section-label">Past Performance (up to 3 projects)</p>
+                <div className="projects-list">
+                  {form.past_performance.map((proj, idx) => (
+                    <details key={idx} className="project-item">
+                      <summary className="project-summary">
+                        <span className="project-num">Project {idx + 1}</span>
+                        <span className="project-title">{proj.project_title || 'Untitled'}</span>
+                      </summary>
+                      <div className="project-form">
+                        <div className="field-group">
+                          <label>Client Name</label>
+                          <input
+                            type="text"
+                            value={proj.client}
+                            onChange={e => updateProject(idx, 'client', e.target.value)}
+                            placeholder="Client Name"
+                          />
+                        </div>
+                        <div className="field-group">
+                          <label>Project Title</label>
+                          <input
+                            type="text"
+                            value={proj.project_title}
+                            onChange={e => updateProject(idx, 'project_title', e.target.value)}
+                            placeholder="Project Title"
+                          />
+                        </div>
+                        <div className="field-group">
+                          <label>Scope Summary</label>
+                          <textarea
+                            value={proj.scope}
+                            onChange={e => updateProject(idx, 'scope', e.target.value)}
+                            placeholder="Describe the project scope…"
+                            style={{ minHeight: 80 }}
+                          />
+                        </div>
+                        <div className="field-group">
+                          <label>Completion Year</label>
+                          <input
+                            type="number"
+                            value={proj.completion_year}
+                            onChange={e => updateProject(idx, 'completion_year', Number(e.target.value))}
+                            placeholder="2025"
+                          />
+                        </div>
+                        <div className="field-group">
+                          <label>Contract Value (optional)</label>
+                          <input
+                            type="text"
+                            value={proj.contract_value}
+                            onChange={e => updateProject(idx, 'contract_value', e.target.value)}
+                            placeholder="Example: $250,000"
+                          />
+                        </div>
+                        <button
+                          className="btn-remove"
+                          onClick={() => removeProject(idx)}
+                          style={{ marginTop: '0.5rem', padding: '0.5rem 1rem', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        >
+                          Remove Project
+                        </button>
+                      </div>
+                    </details>
+                  ))}
+                </div>
+                {form.past_performance.length < 3 && (
+                  <button
+                    className="btn-add-project"
+                    onClick={addProject}
+                    style={{ marginTop: '0.75rem', padding: '0.5rem 1rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    + Add Project
+                  </button>
+                )}
 
                 <div className="divider" />
                 <p className="section-label">Sector Tags</p>
