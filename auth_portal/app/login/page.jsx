@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getApiUrl } from '@/lib/config';
 import Link from 'next/link';
@@ -9,6 +9,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<AuthLayout />}>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [form, setForm] = useState({ email: '', password: '' });
