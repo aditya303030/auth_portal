@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/config';
 import Link from 'next/link';
 import AuthLayout from '@/components/AuthLayout';
 import { useRouter } from 'next/navigation';
@@ -125,7 +126,7 @@ export default function SignupPage() {
 
       console.log('Sending profile data:', profileBody);
 
-      const res = await fetch('http://localhost:8000/api/users', {
+      const res = await fetch(getApiUrl('/api/users'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profileBody),

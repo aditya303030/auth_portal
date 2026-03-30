@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/config';
 import Link from 'next/link';
 import AuthLayout from '@/components/AuthLayout';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -50,7 +51,7 @@ export default function LoginPage() {
 
     try {
       console.log('Fetching profile for uuid:', userData.user.id);
-      const res = await fetch(`http://localhost:8000/api/me?uuid=${userData.user.id}`);
+      const res = await fetch(getApiUrl(`/api/me?uuid=${userData.user.id}`));
       if (!res.ok) throw new Error(await res.text());
       const profile = await res.json();
       const info = profile.user_information || {};

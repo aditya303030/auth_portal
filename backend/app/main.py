@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import HTTPException
@@ -12,9 +13,23 @@ from app.services.data_service import fetch_rfps
 
 app = FastAPI(title="Black BRAND Backend")
 
+
+def get_allowed_origins():
+    configured = os.environ.get("CORS_ORIGINS", "")
+    origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
+
+    frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+    if frontend_url and frontend_url not in origins:
+        origins.append(frontend_url)
+
+    if not origins:
+        origins = ["http://localhost:3000"]
+
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

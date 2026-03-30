@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/config';
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function ResultsPage() {
     if (!r) { router.push('/dashboard'); return; }
     setResults(JSON.parse(r));
     if (p) setProfile(JSON.parse(p));
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,7 +51,7 @@ export default function ResultsPage() {
     setChatLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/chat', {
+      const res = await fetch(getApiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -66,7 +67,7 @@ export default function ResultsPage() {
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Error reaching the assistant. Is the backend running?' }]);
     } finally {
       setChatLoading(false);

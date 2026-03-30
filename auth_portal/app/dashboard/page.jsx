@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/config';
 
 const TAGS = [
   'IT Services', 'Cybersecurity', 'Cloud', 'Construction', 'Engineering',
@@ -81,7 +82,7 @@ export default function DashboardPage() {
 
       try {
         console.log('Fetching profile from API for uuid:', data.user.id);
-        const resp = await fetch(`http://localhost:8000/api/me?uuid=${data.user.id}`);
+        const resp = await fetch(getApiUrl(`/api/me?uuid=${data.user.id}`));
         if (!resp.ok) return;
         const profile = await resp.json();
         const info = profile.user_information || {};
@@ -208,7 +209,7 @@ export default function DashboardPage() {
       contact_phone: payload.contact_phone,
     };
 
-    const profileRes = await fetch('http://localhost:8000/api/users', {
+    const profileRes = await fetch(getApiUrl('/api/users'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profilePayload),
@@ -253,7 +254,7 @@ export default function DashboardPage() {
       const payload = buildRecommendationPayload();
       const savedProfile = await saveProfile(payload);
 
-      const res = await fetch('http://localhost:8000/api/recommend', {
+      const res = await fetch(getApiUrl('/api/recommend'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
