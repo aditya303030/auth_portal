@@ -72,3 +72,25 @@ class ChatResponseSchema(BaseModel):
 class RecommendResponseSchema(BaseModel):
     count: int
     results: List[Dict[str, Any]]
+
+
+class UserInfoSchema(BaseModel):
+    uuid: str
+    company_name: str = ''
+    naics_codes: List[str] = []
+    cage: str = ''
+    tags: List[str] = []
+    location: str = ''
+    core_competencies: List[str] = []
+    website: str = ''
+    hq_location: str = ''
+    service_areas: str = ''
+    years_in_business: int = 0
+    uei: str = ''
+    company_description: str = ''
+    differentiators: str = ''
+    past_performance: List[PastPerformanceItem] = []
+    portfolio_pdf_text: str = ''
+    contact_name: str = ''
+    contact_email: str = ''
+    contact_phone: str = ''

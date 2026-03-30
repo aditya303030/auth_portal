@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.routes.recommend import router as recommend_router
 from app.routes.chat import router as chat_router
+from app.routes.user import router as user_router
 from app.services.data_service import fetch_rfps
 
 app = FastAPI(title="Black BRAND Backend")
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(recommend_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
 
 
 @app.get("/")

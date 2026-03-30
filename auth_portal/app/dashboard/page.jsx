@@ -47,11 +47,77 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) router.push('/login');
-      else setUser(data.user);
-    });
-  }, []);
+    const loadProfile = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        router.push('/login');
+        return;
+      }
+
+      const authUser = data.user;
+      setUser(authUser);
+
+      const cached = sessionStorage.getItem('vendor_profile');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          console.log('Loaded cached profile:', parsed);
+          setForm((prev) => ({
+            ...prev,
+            ...parsed,
+            legal_name: parsed.legal_name || parsed.company_name || prev.legal_name,
+            naics_codes: toCsvString(parsed.naics_codes || prev.naics_codes),
+            selected_tags: parsed.selected_tags || parsed.tags || prev.selected_tags,
+            location_keywords: parsed.location_keywords || parsed.location || prev.location_keywords,
+            core_competencies: toCsvString(parsed.core_competencies || prev.core_competencies),
+            differentiators: toCsvString(parsed.differentiators || prev.differentiators),
+            contact_name: parsed.contact_name || authUser.user_metadata?.full_name || prev.contact_name,
+            contact_email: parsed.contact_email || authUser.email || prev.contact_email,
+          }));
+        } catch (err) {
+          console.warn('Unable to parse cached vendor profile', err);
+        }
+      }
+
+      try {
+        console.log('Fetching profile from API for uuid:', data.user.id);
+        const resp = await fetch(`http://localhost:8000/api/me?uuid=${data.user.id}`);
+        if (!resp.ok) return;
+        const profile = await resp.json();
+        const info = profile.user_information || {};
+        console.log('Fetched profile from API:', info);
+        setForm((prev) => ({
+          ...prev,
+          legal_name: info.company_name || prev.legal_name,
+          website: info.website || prev.website,
+          contact_name: info.contact_name || authUser.user_metadata?.full_name || prev.contact_name,
+          contact_email: info.contact_email || authUser.email || prev.contact_email,
+          contact_phone: info.contact_phone || prev.contact_phone,
+          hq_location: info.hq_location || prev.hq_location,
+          service_areas: info.service_areas || prev.service_areas,
+          years_in_business: info.years_in_business ? String(info.years_in_business) : prev.years_in_business,
+          uei: info.uei || prev.uei,
+          cage: info.cage || prev.cage,
+          naics_codes: Array.isArray(info.naics_codes) ? info.naics_codes.join(', ') : info.naics_codes || prev.naics_codes,
+          selected_tags: info.tags || prev.selected_tags,
+          location_keywords: info.location || prev.location_keywords,
+          core_competencies: Array.isArray(info.core_competencies) ? info.core_competencies.join(', ') : info.core_competencies || prev.core_competencies,
+          company_description: info.company_description || prev.company_description,
+          differentiators: info.differentiators || prev.differentiators,
+          portfolio_pdf_text: info.portfolio_pdf_text || prev.portfolio_pdf_text,
+        }));
+      } catch (fetchErr) {
+        console.warn('Could not load user profile:', fetchErr);
+        setForm((prev) => ({
+          ...prev,
+          contact_name: prev.contact_name || authUser.user_metadata?.full_name || '',
+          contact_email: prev.contact_email || authUser.email || '',
+        }));
+      }
+    };
+
+    loadProfile();
+  }, [router]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -89,18 +155,103 @@ export default function DashboardPage() {
     set('past_performance', form.past_performance.filter((_, i) => i !== idx));
   };
 
+  const toCsvString = (value) => {
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+    return value || '';
+  };
+
+  const toList = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item).trim()).filter(Boolean);
+    }
+    return String(value || '').split(',').map((item) => item.trim()).filter(Boolean);
+  };
+
+  const buildRecommendationPayload = () => ({
+    ...form,
+    naics_codes: toList(form.naics_codes),
+    core_competencies: toList(form.core_competencies),
+    differentiators: toList(form.differentiators),
+    years_in_business: Number(form.years_in_business) || 0,
+    max_age_days: Number(form.max_age_days),
+    top_k: Number(form.top_k),
+  });
+
+  const saveProfile = async (payload) => {
+    if (!user?.id) {
+      throw new Error('Could not identify the current user.');
+    }
+
+    const profilePayload = {
+      uuid: user.id,
+      company_name: payload.legal_name,
+      naics_codes: payload.naics_codes,
+      cage: payload.cage,
+      tags: payload.selected_tags,
+      location: payload.location_keywords,
+      core_competencies: payload.core_competencies,
+      website: payload.website,
+      hq_location: payload.hq_location,
+      service_areas: payload.service_areas,
+      years_in_business: payload.years_in_business,
+      uei: payload.uei,
+      company_description: payload.company_description,
+      differentiators: Array.isArray(payload.differentiators)
+        ? payload.differentiators.join(', ')
+        : payload.differentiators,
+      past_performance: payload.past_performance,
+      portfolio_pdf_text: payload.portfolio_pdf_text,
+      contact_name: payload.contact_name,
+      contact_email: payload.contact_email,
+      contact_phone: payload.contact_phone,
+    };
+
+    const profileRes = await fetch('http://localhost:8000/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profilePayload),
+    });
+
+    if (!profileRes.ok) {
+      throw new Error(await profileRes.text());
+    }
+
+    const profileData = await profileRes.json();
+    const savedProfile = profileData?.data || profilePayload;
+
+    sessionStorage.setItem('vendor_profile', JSON.stringify({
+      ...payload,
+      company_name: savedProfile.company_name || payload.legal_name,
+    }));
+
+    return savedProfile;
+  };
+
+  const handleNextStep = async () => {
+    if (step !== 1) {
+      setStep(s => s + 1);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = buildRecommendationPayload();
+      await saveProfile(payload);
+      setStep(2);
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const payload = {
-        ...form,
-        naics_codes: form.naics_codes.split(',').map(s => s.trim()).filter(Boolean),
-        core_competencies: form.core_competencies.split(',').map(s => s.trim()).filter(Boolean),
-        differentiators: form.differentiators.split(',').map(s => s.trim()).filter(Boolean),
-        years_in_business: Number(form.years_in_business) || 0,
-        max_age_days: Number(form.max_age_days),
-        top_k: Number(form.top_k),
-      };
+      const payload = buildRecommendationPayload();
+      const savedProfile = await saveProfile(payload);
 
       const res = await fetch('http://localhost:8000/api/recommend', {
         method: 'POST',
@@ -112,7 +263,10 @@ export default function DashboardPage() {
       const data = await res.json();
 
       sessionStorage.setItem('rfp_results', JSON.stringify(data.results));
-      sessionStorage.setItem('vendor_profile', JSON.stringify(payload));
+      sessionStorage.setItem('vendor_profile', JSON.stringify({
+        ...payload,
+        company_name: savedProfile.company_name || payload.legal_name,
+      }));
       router.push('/results');
     } catch (err) {
       alert('Error: ' + err.message);
@@ -390,7 +544,7 @@ export default function DashboardPage() {
                 <button className="btn-back" onClick={() => setStep(s => s - 1)}>Back</button>
               )}
               {step < 3 ? (
-                <button className="btn-next" onClick={() => setStep(s => s + 1)}>
+                <button className="btn-next" onClick={handleNextStep} disabled={loading}>
                   Next <span>→</span>
                 </button>
               ) : (

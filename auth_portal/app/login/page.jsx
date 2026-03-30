@@ -1,18 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import AuthLayout from '@/components/AuthLayout';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 
 export default function LoginPage() {
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const message = searchParams.get('message');
+    const confirmed = searchParams.get('confirmed');
+    if (message) setSuccess(message);
+    if (confirmed) setSuccess('Email confirmed! You can now sign in.');
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,9 +33,40 @@ export default function LoginPage() {
       password: form.password,
     });
 
-    if (error) setError(error.message);
-    else router.push('/dashboard');
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userData?.user?.id) {
+      setError(userErr?.message || 'Could not retrieve user after login');
+      setLoading(false);
+      return;
+    }
+
+    console.log('Supabase login successful, user id:', userData.user.id);
+
+    try {
+      console.log('Fetching profile for uuid:', userData.user.id);
+      const res = await fetch(`http://localhost:8000/api/me?uuid=${userData.user.id}`);
+      if (!res.ok) throw new Error(await res.text());
+      const profile = await res.json();
+      const info = profile.user_information || {};
+      const mergedProfile = {
+        ...info,
+        contact_name: info.contact_name || userData.user.user_metadata?.full_name || '',
+        contact_email: info.contact_email || userData.user.email || '',
+      };
+      console.log('Profile fetched:', info);
+      sessionStorage.setItem('vendor_profile', JSON.stringify(mergedProfile));
+    } catch (fetchErr) {
+      console.warn('Could not load profile after login:', fetchErr);
+    }
+
     setLoading(false);
+    router.push('/dashboard');
   };
 
   return (
@@ -63,6 +103,10 @@ export default function LoginPage() {
           <p style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center' }}>{error}</p>
         )}
 
+        {success && (
+          <p style={{ color: '#22c55e', fontSize: '13px', textAlign: 'center' }}>{success}</p>
+        )}
+
         <button type="submit" className={`btn-primary ${loading ? 'loading' : ''}`} disabled={loading}>
           {loading ? <span className="spinner" /> : 'Sign in'}
         </button>
@@ -76,7 +120,7 @@ export default function LoginPage() {
       </button>
 
       <p className="auth-switch">
-        Don't have an account? <Link href="/signup">Sign up</Link>
+        Don&apos;t have an account? <Link href="/signup">Sign up</Link>
       </p>
     </AuthLayout>
   );
