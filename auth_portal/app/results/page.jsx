@@ -19,6 +19,9 @@ export default function ResultsPage() {
   const [rfpPdfText, setRfpPdfText] = useState('');
   const [savedIds, setSavedIds] = useState(new Set());
   const [savingId, setSavingId] = useState(null);
+  const [animatingId, setAnimatingId] = useState(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
   const chatEndRef = useRef(null);
 
   useEffect(() => {
@@ -53,6 +56,8 @@ export default function ResultsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setSavingId(rfp.id);
+    setAnimatingId(rfp.id);
+    setTimeout(() => setAnimatingId(null), 400);
 
     if (savedIds.has(rfp.id)) {
       // Unsave
@@ -116,6 +121,23 @@ export default function ResultsPage() {
 
   const scorePct = (s) => Math.round(s * 100);
 
+  const getRfpLink = (rfp) => {
+    if (rfp.link) return rfp.link;
+    if (rfp.id) return `https://mvendor.cgieva.com/Vendor/public/IVDetails.jsp?PageTitle=SO%20Details&rfp_id_lot=${rfp.id}&rfp_id_round=1`;
+    return null;
+  };
+
+  const totalPages = Math.ceil(results.length / PAGE_SIZE);
+  const pagedResults = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const goToPage = (n) => {
+    setPage(n);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Close chat when changing page
+    setChatOpen(false);
+    setSelected(null);
+  };
+
   return (
     <div className="shell">
       <Navbar resultCount={results.length} />
@@ -134,7 +156,7 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {results.map((rfp, i) => (
+          {pagedResults.map((rfp, i) => (
             <div
               key={rfp.id || i}
               className={`rfp-card ${selected?.id === rfp.id ? 'active' : ''}`}
@@ -156,15 +178,26 @@ export default function ResultsPage() {
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      fontSize: '1.1rem',
-                      padding: '2px 4px',
-                      borderRadius: '4px',
-                      transition: 'transform 0.15s',
+                      padding: '4px 6px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                       opacity: savingId === rfp.id ? 0.4 : 1,
-                      lineHeight: 1,
+                      transition: 'background 0.15s',
                     }}
                   >
-                    {savedIds.has(rfp.id) ? '🔖' : '🏷️'}
+                    <svg width="18" height="18" viewBox="0 0 24 24"
+                      fill={savedIds.has(rfp.id) ? '#2563eb' : 'none'}
+                      stroke={savedIds.has(rfp.id) ? '#2563eb' : '#9ca3af'}
+                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                      style={{
+                        transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        transform: animatingId === rfp.id ? 'scale(1.45)' : 'scale(1)',
+                      }}
+                    >
+                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                    </svg>
                   </button>
                 </div>
               </div>
@@ -181,6 +214,32 @@ export default function ResultsPage() {
               </div>
 
               {rfp.description && <p className="card-desc">{rfp.description}</p>}
+
+              {getRfpLink(rfp) && (
+                <a
+                  href={getRfpLink(rfp)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    marginTop: '0.5rem',
+                    marginBottom: '0.25rem',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#2563eb',
+                    textDecoration: 'none',
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    borderRadius: '6px',
+                    padding: '5px 12px',
+                  }}
+                >
+                  📄 View / Download RFP ↗
+                </a>
+              )}
 
               <div className="card-scores">
                 {[
@@ -203,14 +262,52 @@ export default function ResultsPage() {
 
               <div className="card-actions" onClick={e => e.stopPropagation()}>
                 <button className="btn-chat" onClick={() => openChat(rfp)}>Chat about this →</button>
-                {rfp.link && (
-                  <a className="btn-link" href={rfp.link} target="_blank" rel="noopener noreferrer">
+                {getRfpLink(rfp) && (
+                  <a className="btn-link" href={getRfpLink(rfp)} target="_blank" rel="noopener noreferrer">
                     View RFP ↗
                   </a>
                 )}
               </div>
             </div>
           ))}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: '0.5rem', padding: '2rem 0 1rem', flexWrap: 'wrap',
+            }}>
+              <button onClick={() => goToPage(page - 1)} disabled={page === 1} style={{
+                padding: '0.5rem 1rem', borderRadius: '8px',
+                border: '1px solid #e5e7eb', background: 'white',
+                color: page === 1 ? '#d1d5db' : '#374151',
+                fontSize: '13px', fontWeight: 500,
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit', transition: 'all 0.15s',
+              }}>← Prev</button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                <button key={n} onClick={() => goToPage(n)} style={{
+                  width: '36px', height: '36px', borderRadius: '8px',
+                  border: n === page ? 'none' : '1px solid #e5e7eb',
+                  background: n === page ? '#2563eb' : 'white',
+                  color: n === page ? 'white' : '#374151',
+                  fontSize: '13px', fontWeight: n === page ? 600 : 500,
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{n}</button>
+              ))}
+
+              <button onClick={() => goToPage(page + 1)} disabled={page === totalPages} style={{
+                padding: '0.5rem 1rem', borderRadius: '8px',
+                border: '1px solid #e5e7eb', background: 'white',
+                color: page === totalPages ? '#d1d5db' : '#374151',
+                fontSize: '13px', fontWeight: 500,
+                cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit', transition: 'all 0.15s',
+              }}>Next →</button>
+            </div>
+          )}
         </div>
 
         {/* CHAT PANEL */}

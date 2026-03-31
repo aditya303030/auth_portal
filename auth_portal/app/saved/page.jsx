@@ -115,8 +115,13 @@ export default function SavedPage() {
                   <div style={{ display:'flex',alignItems:'center',gap:'0.5rem' }}>
                     {rfp.score && <span className="score-badge" style={{ color: scoreColor(rfp.score) }}>{Math.round(rfp.score * 100)}%</span>}
                     <button onClick={(e) => { e.stopPropagation(); unsave(row); }} title="Remove from saved"
-                      style={{ background:'none',border:'none',cursor:'pointer',fontSize:'1.1rem',padding:'2px 4px',lineHeight:1 }}>
-                      🔖
+                      style={{ background:'none',border:'none',cursor:'pointer',padding:'4px 6px',borderRadius:'6px',display:'flex',alignItems:'center' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24"
+                        fill="#2563eb" stroke="#2563eb" strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transition: 'all 0.2s' }}>
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                      </svg>
                     </button>
                   </div>
                 </div>

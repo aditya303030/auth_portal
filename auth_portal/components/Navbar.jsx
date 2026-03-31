@@ -8,21 +8,17 @@ import Link from 'next/link';
 export default function Navbar({ resultCount }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState(null);
   const [firstName, setFirstName] = useState('');
   const [companyWebsite, setCompanyWebsite] = useState('');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
-      setUser(data.user);
       const meta = data.user.user_metadata || {};
       const name = meta.full_name || meta.name || '';
       setFirstName(name.split(' ')[0] || '');
-      // Get website from vendor profile stored in metadata or sessionStorage
-      const profile = meta.vendor_profile ||
-        JSON.parse(sessionStorage.getItem('vendor_profile') || '{}');
-      setCompanyWebsite(profile.website || '');
+      const profile = JSON.parse(sessionStorage.getItem('vendor_profile') || '{}');
+      setCompanyWebsite(profile.website || meta.website || '');
     });
   }, []);
 
@@ -35,6 +31,7 @@ export default function Navbar({ resultCount }) {
   const navLinks = [
     { href: '/results', label: 'Opportunities' },
     { href: '/saved', label: 'Saved RFPs' },
+    { href: '/profile', label: 'My Profile' },
   ];
 
   return (
@@ -44,53 +41,57 @@ export default function Navbar({ resultCount }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 1.75rem;
-          height: 58px;
+          padding: 0 2rem;
+          height: 64px;
           border-bottom: 1px solid var(--border);
-          background: rgba(255,255,255,0.95);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: #ffffff;
           position: sticky;
           top: 0;
           z-index: 100;
           flex-shrink: 0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
 
         .navbar-left {
           display: flex;
           align-items: center;
-          gap: 2rem;
+          gap: 2.5rem;
         }
 
         .navbar-brand {
-          font-size: 13px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
           color: #2563eb;
           text-decoration: none;
           transition: opacity 0.15s;
+          white-space: nowrap;
         }
-        .navbar-brand:hover { opacity: 0.75; }
+        .navbar-brand:hover { opacity: 0.7; }
 
         .navbar-links {
           display: flex;
           align-items: center;
-          gap: 0.25rem;
+          gap: 0.15rem;
         }
 
         .navbar-link {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 500;
-          color: var(--text-muted);
+          color: #6b7280;
           text-decoration: none;
-          padding: 0.35rem 0.75rem;
-          border-radius: var(--radius-sm);
+          padding: 0.4rem 0.9rem;
+          border-radius: 8px;
           transition: all 0.15s;
+          white-space: nowrap;
+          display: flex;
+          align-items: center;
+          gap: 6px;
         }
         .navbar-link:hover {
-          background: var(--bg-subtle);
-          color: var(--text);
+          background: #f3f4f6;
+          color: #111827;
         }
         .navbar-link.active {
           background: rgba(37,99,235,0.08);
@@ -98,42 +99,55 @@ export default function Navbar({ resultCount }) {
           font-weight: 600;
         }
 
-        .navbar-right {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .navbar-greeting {
-          font-size: 13px;
-          color: var(--text-muted);
-        }
-        .navbar-greeting strong {
-          color: var(--text);
+        .nav-count {
+          font-size: 11px;
+          background: rgba(37,99,235,0.1);
+          color: #2563eb;
+          padding: 1px 7px;
+          border-radius: 9999px;
           font-weight: 600;
         }
 
-        .navbar-signout {
-          font-size: 12px;
-          padding: 0.35rem 0.85rem;
-          border-radius: var(--radius-sm);
-          border: 1px solid var(--border);
-          background: transparent;
-          color: var(--text-muted);
-          cursor: pointer;
-          transition: all 0.15s;
-          font-family: inherit;
+        .navbar-right {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
         }
-        .navbar-signout:hover {
-          background: var(--bg-subtle);
-          border-color: var(--border-strong);
-          color: var(--text);
+
+        .navbar-greeting {
+          font-size: 14px;
+          color: #6b7280;
+          white-space: nowrap;
+        }
+        .navbar-greeting strong {
+          color: #111827;
+          font-weight: 600;
         }
 
         .navbar-divider {
           width: 1px;
-          height: 18px;
-          background: var(--border);
+          height: 20px;
+          background: #e5e7eb;
+          flex-shrink: 0;
+        }
+
+        .navbar-signout {
+          font-size: 13px;
+          font-weight: 500;
+          padding: 0.4rem 1rem;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          background: transparent;
+          color: #6b7280;
+          cursor: pointer;
+          transition: all 0.15s;
+          font-family: inherit;
+          white-space: nowrap;
+        }
+        .navbar-signout:hover {
+          background: #f9fafb;
+          border-color: #d1d5db;
+          color: #111827;
         }
       `}</style>
 
@@ -143,8 +157,7 @@ export default function Navbar({ resultCount }) {
             <a
               className="navbar-brand"
               href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
-              target="_blank"
-              rel="noopener noreferrer"
+              target="_blank" rel="noopener noreferrer"
             >
               Black Brand
             </a>
@@ -154,22 +167,11 @@ export default function Navbar({ resultCount }) {
 
           <div className="navbar-links">
             {navLinks.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`navbar-link ${pathname === href ? 'active' : ''}`}
-              >
+              <Link key={href} href={href}
+                className={`navbar-link ${pathname === href ? 'active' : ''}`}>
                 {label}
                 {href === '/results' && resultCount > 0 && (
-                  <span style={{
-                    marginLeft: '5px',
-                    fontSize: '10px',
-                    background: 'rgba(37,99,235,0.1)',
-                    color: '#2563eb',
-                    padding: '1px 6px',
-                    borderRadius: '9999px',
-                    fontWeight: 600,
-                  }}>{resultCount}</span>
+                  <span className="nav-count">{resultCount}</span>
                 )}
               </Link>
             ))}
