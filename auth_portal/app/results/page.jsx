@@ -35,7 +35,6 @@ export default function ResultsPage() {
       setResults(JSON.parse(r));
       if (p) setProfile(JSON.parse(p));
 
-      // Load already-saved RFP ids
       const { data: saved } = await supabase
         .from('saved_rfps')
         .select('rfp')
@@ -60,16 +59,10 @@ export default function ResultsPage() {
     setTimeout(() => setAnimatingId(null), 400);
 
     if (savedIds.has(rfp.id)) {
-      // Unsave
-      await supabase.from('saved_rfps')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('rfp->>id', rfp.id);
+      await supabase.from('saved_rfps').delete().eq('user_id', user.id).eq('rfp->>id', rfp.id);
       setSavedIds(prev => { const s = new Set(prev); s.delete(rfp.id); return s; });
     } else {
-      // Save
-      await supabase.from('saved_rfps')
-        .insert({ user_id: user.id, rfp });
+      await supabase.from('saved_rfps').insert({ user_id: user.id, rfp });
       setSavedIds(prev => new Set(prev).add(rfp.id));
     }
     setSavingId(null);
@@ -107,10 +100,25 @@ export default function ResultsPage() {
       const data = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Error reaching the assistant.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Error reaching the assistant.' }]);
     } finally {
       setChatLoading(false);
     }
+  };
+
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8 = new Uint8Array(arrayBuffer);
+    const raw = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
+    const matches = [...raw.matchAll(/stream([\s\S]*?)endstream/g)];
+    const extracted = matches
+      .map(m => m[1].replace(/[^\x20-\x7E\n]/g, ' ').trim())
+      .filter(t => t.length > 20)
+      .join('\n\n');
+    setRfpPdfText(extracted || raw.replace(/[^\x20-\x7E\n]/g, ' ').slice(0, 15000));
+    e.target.value = '';
   };
 
   const scoreColor = (s) => {
@@ -133,10 +141,16 @@ export default function ResultsPage() {
   const goToPage = (n) => {
     setPage(n);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    // Close chat when changing page
     setChatOpen(false);
     setSelected(null);
   };
+
+  const CloseIcon = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
 
   return (
     <div className="shell">
@@ -169,20 +183,14 @@ export default function ResultsPage() {
                   <span className="score-badge" style={{ color: scoreColor(rfp.score) }}>
                     {scorePct(rfp.score)}%
                   </span>
-                  {/* Save button */}
                   <button
                     onClick={(e) => toggleSave(rfp, e)}
                     disabled={savingId === rfp.id}
                     title={savedIds.has(rfp.id) ? 'Unsave' : 'Save'}
                     style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: '4px 6px',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      padding: '4px 6px', borderRadius: '6px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                       opacity: savingId === rfp.id ? 0.4 : 1,
                       transition: 'background 0.15s',
                     }}
@@ -204,10 +212,10 @@ export default function ResultsPage() {
 
               <div className="card-meta">
                 <span className={`meta-pill ${rfp.status?.toLowerCase() === 'open' ? 'open' : ''}`}>
-                  ● {rfp.status || 'Unknown'}
+                  {rfp.status || 'Unknown'}
                 </span>
                 {rfp.location && <span className="meta-pill">📍 {rfp.location}</span>}
-                {rfp.close_dt && <span className="meta-pill">⏰ Closes {rfp.close_dt}</span>}
+                {rfp.close_dt && <span className="meta-pill">Closes {rfp.close_dt}</span>}
                 {rfp.tags?.slice(0, 2).map(t => (
                   <span key={t} className="meta-pill">{t}</span>
                 ))}
@@ -222,22 +230,19 @@ export default function ResultsPage() {
                   rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    marginTop: '0.5rem',
-                    marginBottom: '0.25rem',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: '#2563eb',
-                    textDecoration: 'none',
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '6px',
-                    padding: '5px 12px',
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    marginTop: '0.5rem', marginBottom: '0.25rem',
+                    fontSize: '13px', fontWeight: 600, color: '#2563eb',
+                    textDecoration: 'none', background: '#eff6ff',
+                    border: '1px solid #bfdbfe', borderRadius: '6px', padding: '5px 12px',
                   }}
                 >
-                  📄 View / Download RFP ↗
+                  View / Download RFP
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
                 </a>
               )}
 
@@ -262,11 +267,6 @@ export default function ResultsPage() {
 
               <div className="card-actions" onClick={e => e.stopPropagation()}>
                 <button className="btn-chat" onClick={() => openChat(rfp)}>Chat about this →</button>
-                {getRfpLink(rfp) && (
-                  <a className="btn-link" href={getRfpLink(rfp)} target="_blank" rel="noopener noreferrer">
-                    View RFP ↗
-                  </a>
-                )}
               </div>
             </div>
           ))}
@@ -284,7 +284,7 @@ export default function ResultsPage() {
                 fontSize: '13px', fontWeight: 500,
                 cursor: page === 1 ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.15s',
-              }}>← Prev</button>
+              }}>Prev</button>
 
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
                 <button key={n} onClick={() => goToPage(n)} style={{
@@ -305,7 +305,7 @@ export default function ResultsPage() {
                 fontSize: '13px', fontWeight: 500,
                 cursor: page === totalPages ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.15s',
-              }}>Next →</button>
+              }}>Next</button>
             </div>
           )}
         </div>
@@ -313,11 +313,31 @@ export default function ResultsPage() {
         {/* CHAT PANEL */}
         {chatOpen && selected && (
           <div className="chat-panel">
-            <div className="chat-header">
-              <button className="chat-close" onClick={() => { setChatOpen(false); setSelected(null); }}>✕</button>
-              <p className="chat-rfp-title">{selected.title}</p>
-              <p className="chat-rfp-sub">AI Proposal Strategist</p>
+
+            {/* Header */}
+            <div className="chat-header" style={{
+              display: 'flex', alignItems: 'flex-start',
+              justifyContent: 'space-between', gap: '12px',
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="chat-rfp-title">{selected.title}</p>
+                <p className="chat-rfp-sub">AI Proposal Strategist</p>
+              </div>
+              <button
+                onClick={() => { setChatOpen(false); setSelected(null); }}
+                style={{
+                  flexShrink: 0, background: 'none',
+                  border: '1px solid #e5e7eb', borderRadius: '6px',
+                  width: '28px', height: '28px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: '#6b7280', padding: 0,
+                }}
+              >
+                <CloseIcon />
+              </button>
             </div>
+
+            {/* Messages */}
             <div className="chat-messages">
               {messages.map((m, i) => (
                 <div key={i} className={`msg ${m.role}`}>
@@ -337,19 +357,72 @@ export default function ResultsPage() {
               )}
               <div ref={chatEndRef} />
             </div>
+
+            {/* Footer */}
             <div className="chat-footer">
-              <textarea
-                className="chat-input"
-                placeholder="Ask about bid/no-bid, compliance, win themes…"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-                }}
-                rows={1}
-              />
-              <button className="chat-send" onClick={sendMessage} disabled={chatLoading || !input.trim()}>↑</button>
+              {rfpPdfText && (
+                <div style={{
+                  fontSize: '11px', color: '#16a34a', fontWeight: 600,
+                  padding: '4px 10px', background: '#f0fdf4',
+                  borderRadius: '6px', marginBottom: '6px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+                }}>
+                  <span>PDF loaded</span>
+                  <button
+                    onClick={() => setRfpPdfText('')}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'stretch', gap: '6px', width: '100%' }}>
+                <label
+                  title="Upload RFP PDF"
+                  style={{
+                    cursor: 'pointer',
+                    width: '38px', height: '38px',
+                    borderRadius: '8px',
+                    border: '1px solid #e5e7eb', background: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, color: '#6b7280',
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={handlePdfUpload}
+                  />
+                </label>
+                <textarea
+                  className="chat-input"
+                  placeholder="Ask about this RFP…"
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+                  }}
+                  rows={1}
+                  style={{ flex: 1, minWidth: 0, width: 0, resize: 'none', boxSizing: 'border-box' }}
+                />
+                <button
+                  className="chat-send"
+                  onClick={sendMessage}
+                  disabled={chatLoading || !input.trim()}
+                  style={{ width: '38px', height: '38px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
+
           </div>
         )}
       </div>

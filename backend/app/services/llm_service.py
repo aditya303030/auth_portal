@@ -8,7 +8,7 @@ except Exception:
     PdfReader = None
 
 
-HF_TOKEN = os.environ.get("LLM_key")
+HF_TOKEN = os.environ.get("LLM_KEY")
 MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 client = None
