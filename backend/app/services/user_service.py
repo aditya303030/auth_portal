@@ -21,6 +21,7 @@ def _normalize_user_row(row: dict):
     row['naics_codes'] = [c.strip() for c in (row.get('naics_codes') or '').split(',') if c.strip()]
     row['core_competencies'] = [c.strip() for c in (row.get('core_competencies') or '').split(',') if c.strip()]
     row['tags'] = row.get('tags') or []
+    row['certifications'] = row.get('certifications') or []
     row['uei'] = row.get('uei', '')
     row['past_performance'] = row.get('past_performance', [])
     row['portfolio_pdf_text'] = row.get('portfolio_pdf_text', '')

@@ -32,6 +32,13 @@ function LoginContent() {
     if (confirmed) setSuccess('Email confirmed! You can now sign in.');
   }, [searchParams]);
 
+  const toStringArray = (value) => {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -65,6 +72,10 @@ function LoginContent() {
       const info = profile.user_information || {};
       const mergedProfile = {
         ...info,
+        certifications: toStringArray(info.certifications),
+        tags: toStringArray(info.tags),
+        selected_tags: toStringArray(info.selected_tags || info.tags),
+        past_performance: Array.isArray(info.past_performance) ? info.past_performance : [],
         contact_name: info.contact_name || userData.user.user_metadata?.full_name || '',
         contact_email: info.contact_email || userData.user.email || '',
       };

@@ -199,20 +199,14 @@ input, textarea, select { font-family: inherit; }
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin-bottom: 32px;
+  justify-content: center;
+  margin-bottom: 28px;
 }
-.brand-icon {
-  font-size: 18px;
-  color: var(--accent);
-  line-height: 1;
-}
-.brand-name {
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text);
+.brand-wordmark {
+  width: clamp(176px, 52vw, 240px);
+  height: auto;
+  display: block;
+  object-fit: contain;
 }
 
 /* Auth header */

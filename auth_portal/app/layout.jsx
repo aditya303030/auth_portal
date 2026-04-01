@@ -12,14 +12,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Auth Portal",
-  description: "Login and Signup",
+  title: "BLACK BRAND Portal",
+  description: "BLACK BRAND authentication portal",
+  icons: {
+    icon: "/black-brand-mark-circle.png",
+    shortcut: "/black-brand-mark-circle.png",
+    apple: "/black-brand-mark-circle.png",
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
       </body>
     </html>
