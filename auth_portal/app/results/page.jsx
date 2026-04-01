@@ -23,6 +23,7 @@ export default function ResultsPage() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
   const chatEndRef = useRef(null);
+  const chatMessagesRef = useRef(null);
 
   useEffect(() => {
     const init = async () => {
@@ -47,7 +48,9 @@ export default function ResultsPage() {
   }, [router]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
   }, [messages]);
 
   const toggleSave = async (rfp, e) => {
@@ -121,13 +124,16 @@ export default function ResultsPage() {
     e.target.value = '';
   };
 
+  const maxScore = results.length > 0 ? Math.max(...results.map(r => r.score || 0)) : 1;
+
+  const scorePct = (s) => maxScore > 0 ? Math.round((s / maxScore) * 100) : 0;
+
   const scoreColor = (s) => {
-    if (s >= 0.7) return '#16a34a';
-    if (s >= 0.4) return '#d97706';
+    const pct = scorePct(s);
+    if (pct >= 70) return '#16a34a';
+    if (pct >= 40) return '#d97706';
     return '#dc2626';
   };
-
-  const scorePct = (s) => Math.round(s * 100);
 
   const getRfpLink = (rfp) => {
     if (rfp.link) return rfp.link;
@@ -160,7 +166,28 @@ export default function ResultsPage() {
         <div className="results-panel">
           <div className="results-header">
             <h1 className="results-title">Matched Opportunities</h1>
-            <span className="results-count">{results.length} results</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <a
+                href="/profile"
+                style={{
+                  fontSize: '13px', fontWeight: 600, color: '#2563eb',
+                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 14px', borderRadius: '8px',
+                  border: '1.5px solid #2563eb',
+                  background: '#eff6ff',
+                  transition: 'all 0.15s',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
+                </svg>
+                Refine Search
+              </a>
+              <span className="results-count">{results.length} results</span>
+            </div>
           </div>
 
           {results.length === 0 && (
@@ -315,30 +342,18 @@ export default function ResultsPage() {
           <div className="chat-panel">
 
             {/* Header */}
-            <div className="chat-header" style={{
-              display: 'flex', alignItems: 'flex-start',
-              justifyContent: 'space-between', gap: '12px',
-            }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="chat-header">
+              <div className="chat-header-text">
                 <p className="chat-rfp-title">{selected.title}</p>
                 <p className="chat-rfp-sub">AI Proposal Strategist</p>
               </div>
-              <button
-                onClick={() => { setChatOpen(false); setSelected(null); }}
-                style={{
-                  flexShrink: 0, background: 'none',
-                  border: '1px solid #e5e7eb', borderRadius: '6px',
-                  width: '28px', height: '28px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', color: '#6b7280', padding: 0,
-                }}
-              >
+              <button className="chat-close" onClick={() => { setChatOpen(false); setSelected(null); }}>
                 <CloseIcon />
               </button>
             </div>
 
             {/* Messages */}
-            <div className="chat-messages">
+            <div className="chat-messages" ref={chatMessagesRef}>
               {messages.map((m, i) => (
                 <div key={i} className={`msg ${m.role}`}>
                   <div className="msg-avatar">{m.role === 'assistant' ? 'AI' : 'You'}</div>
@@ -361,42 +376,19 @@ export default function ResultsPage() {
             {/* Footer */}
             <div className="chat-footer">
               {rfpPdfText && (
-                <div style={{
-                  fontSize: '11px', color: '#16a34a', fontWeight: 600,
-                  padding: '4px 10px', background: '#f0fdf4',
-                  borderRadius: '6px', marginBottom: '6px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
-                }}>
+                <div className="chat-pdf-banner">
                   <span>PDF loaded</span>
-                  <button
-                    onClick={() => setRfpPdfText('')}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 0, display: 'flex', alignItems: 'center' }}
-                  >
+                  <button onClick={() => setRfpPdfText('')}>
                     <CloseIcon />
                   </button>
                 </div>
               )}
-              <div style={{ display: 'flex', alignItems: 'stretch', gap: '6px', width: '100%' }}>
-                <label
-                  title="Upload RFP PDF"
-                  style={{
-                    cursor: 'pointer',
-                    width: '38px', height: '38px',
-                    borderRadius: '8px',
-                    border: '1px solid #e5e7eb', background: 'white',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0, color: '#6b7280',
-                  }}
-                >
+              <div className="chat-footer-row">
+                <label className="chat-upload-btn" title="Upload RFP PDF">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    style={{ display: 'none' }}
-                    onChange={handlePdfUpload}
-                  />
+                  <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} />
                 </label>
                 <textarea
                   className="chat-input"
@@ -407,14 +399,8 @@ export default function ResultsPage() {
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
                   }}
                   rows={1}
-                  style={{ flex: 1, minWidth: 0, width: 0, resize: 'none', boxSizing: 'border-box' }}
                 />
-                <button
-                  className="chat-send"
-                  onClick={sendMessage}
-                  disabled={chatLoading || !input.trim()}
-                  style={{ width: '38px', height: '38px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
+                <button className="chat-send" onClick={sendMessage} disabled={chatLoading || !input.trim()}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="19" x2="12" y2="5" />
                     <polyline points="5 12 12 5 19 12" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 
@@ -17,6 +17,7 @@ const CERTS = [
 
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -39,6 +40,10 @@ export default function ProfilePage() {
       { client: '', project_title: '', scope: '', completion_year: '', contract_value: '' },
     ],
   });
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'preferences') setStep(3);
+  }, [searchParams]);
 
   useEffect(() => {
     const load = async () => {
