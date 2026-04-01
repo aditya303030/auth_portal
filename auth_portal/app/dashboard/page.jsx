@@ -47,6 +47,20 @@ export default function DashboardPage() {
     portfolio_pdf_name: '',
   });
 
+  const toCsvString = (value) => {
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+    return value || '';
+  };
+
+  const toStringArray = (value) => {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       const { data } = await supabase.auth.getUser();
@@ -68,10 +82,12 @@ export default function DashboardPage() {
             ...parsed,
             legal_name: parsed.legal_name || parsed.company_name || prev.legal_name,
             naics_codes: toCsvString(parsed.naics_codes || prev.naics_codes),
-            selected_tags: parsed.selected_tags || parsed.tags || prev.selected_tags,
+            certifications: toStringArray(parsed.certifications || prev.certifications),
+            selected_tags: toStringArray(parsed.selected_tags || parsed.tags || prev.selected_tags),
             location_keywords: parsed.location_keywords || parsed.location || prev.location_keywords,
             core_competencies: toCsvString(parsed.core_competencies || prev.core_competencies),
             differentiators: toCsvString(parsed.differentiators || prev.differentiators),
+            past_performance: Array.isArray(parsed.past_performance) ? parsed.past_performance : prev.past_performance,
             contact_name: parsed.contact_name || authUser.user_metadata?.full_name || prev.contact_name,
             contact_email: parsed.contact_email || authUser.email || prev.contact_email,
           }));
@@ -100,11 +116,13 @@ export default function DashboardPage() {
           uei: info.uei || prev.uei,
           cage: info.cage || prev.cage,
           naics_codes: Array.isArray(info.naics_codes) ? info.naics_codes.join(', ') : info.naics_codes || prev.naics_codes,
-          selected_tags: info.tags || prev.selected_tags,
+          certifications: toStringArray(info.certifications || prev.certifications),
+          selected_tags: toStringArray(info.tags || prev.selected_tags),
           location_keywords: info.location || prev.location_keywords,
           core_competencies: Array.isArray(info.core_competencies) ? info.core_competencies.join(', ') : info.core_competencies || prev.core_competencies,
           company_description: info.company_description || prev.company_description,
           differentiators: info.differentiators || prev.differentiators,
+          past_performance: Array.isArray(info.past_performance) ? info.past_performance : prev.past_performance,
           portfolio_pdf_text: info.portfolio_pdf_text || prev.portfolio_pdf_text,
         }));
       } catch (fetchErr) {
@@ -121,17 +139,19 @@ export default function DashboardPage() {
   }, [router]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const selectedTags = Array.isArray(form.selected_tags) ? form.selected_tags : [];
+  const certifications = Array.isArray(form.certifications) ? form.certifications : [];
 
   const toggleTag = (tag) => {
-    set('selected_tags', form.selected_tags.includes(tag)
-      ? form.selected_tags.filter(t => t !== tag)
-      : [...form.selected_tags, tag]);
+    set('selected_tags', selectedTags.includes(tag)
+      ? selectedTags.filter(t => t !== tag)
+      : [...selectedTags, tag]);
   };
 
   const toggleCert = (cert) => {
-    set('certifications', form.certifications.includes(cert)
-      ? form.certifications.filter(c => c !== cert)
-      : [...form.certifications, cert]);
+    set('certifications', certifications.includes(cert)
+      ? certifications.filter(c => c !== cert)
+      : [...certifications, cert]);
   };
 
   const addProject = () => {
@@ -154,13 +174,6 @@ export default function DashboardPage() {
 
   const removeProject = (idx) => {
     set('past_performance', form.past_performance.filter((_, i) => i !== idx));
-  };
-
-  const toCsvString = (value) => {
-    if (Array.isArray(value)) {
-      return value.join(', ');
-    }
-    return value || '';
   };
 
   const toList = (value) => {
@@ -357,7 +370,7 @@ export default function DashboardPage() {
                   {CERTS.map(c => (
                     <button
                       key={c}
-                      className={`tag-pill ${form.certifications.includes(c) ? 'active' : ''}`}
+                      className={`tag-pill ${certifications.includes(c) ? 'active' : ''}`}
                       onClick={() => toggleCert(c)}
                     >{c}</button>
                   ))}
@@ -481,7 +494,7 @@ export default function DashboardPage() {
                   {TAGS.map(t => (
                     <button
                       key={t}
-                      className={`tag-pill ${form.selected_tags.includes(t) ? 'active' : ''}`}
+                      className={`tag-pill ${selectedTags.includes(t) ? 'active' : ''}`}
                       onClick={() => toggleTag(t)}
                     >{t}</button>
                   ))}
