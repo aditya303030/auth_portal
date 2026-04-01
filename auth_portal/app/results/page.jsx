@@ -17,32 +17,27 @@ export default function ResultsPage() {
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [rfpPdfText, setRfpPdfText] = useState('');
+  const [rfpPdfName, setRfpPdfName] = useState('');
   const [savedIds, setSavedIds] = useState(new Set());
   const [savingId, setSavingId] = useState(null);
   const [animatingId, setAnimatingId] = useState(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
-  const chatEndRef = useRef(null);
   const chatMessagesRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getUser();
       if (!data.user) { router.push('/login'); return; }
-
       const r = sessionStorage.getItem('rfp_results');
       const p = sessionStorage.getItem('vendor_profile');
       if (!r) { router.push('/dashboard'); return; }
       setResults(JSON.parse(r));
       if (p) setProfile(JSON.parse(p));
-
       const { data: saved } = await supabase
-        .from('saved_rfps')
-        .select('rfp')
-        .eq('user_id', data.user.id);
-      if (saved) {
-        setSavedIds(new Set(saved.map(s => s.rfp?.id).filter(Boolean)));
-      }
+        .from('saved_rfps').select('rfp').eq('user_id', data.user.id);
+      if (saved) setSavedIds(new Set(saved.map(s => s.rfp?.id).filter(Boolean)));
     };
     init();
   }, [router]);
@@ -60,7 +55,6 @@ export default function ResultsPage() {
     setSavingId(rfp.id);
     setAnimatingId(rfp.id);
     setTimeout(() => setAnimatingId(null), 400);
-
     if (savedIds.has(rfp.id)) {
       await supabase.from('saved_rfps').delete().eq('user_id', user.id).eq('rfp->>id', rfp.id);
       setSavedIds(prev => { const s = new Set(prev); s.delete(rfp.id); return s; });
@@ -79,10 +73,11 @@ export default function ResultsPage() {
     }]);
     setChatOpen(true);
     setRfpPdfText('');
+    setRfpPdfName('');
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !profile || !selected) return;
+    if ((!input.trim() && !rfpPdfText) || !profile || !selected) return;
     const userMsg = { role: 'user', content: input };
     const next = [...messages, userMsg];
     setMessages(next);
@@ -112,22 +107,54 @@ export default function ResultsPage() {
   const handlePdfUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8 = new Uint8Array(arrayBuffer);
-    const raw = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
-    const matches = [...raw.matchAll(/stream([\s\S]*?)endstream/g)];
-    const extracted = matches
-      .map(m => m[1].replace(/[^\x20-\x7E\n]/g, ' ').trim())
-      .filter(t => t.length > 20)
-      .join('\n\n');
-    setRfpPdfText(extracted || raw.replace(/[^\x20-\x7E\n]/g, ' ').slice(0, 15000));
+    setRfpPdfName(file.name);
+    let text = '';
+    try {
+      text = await file.text();
+      setRfpPdfText(text.slice(0, 15000));
+    } catch {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        const raw = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
+        text = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
+        setRfpPdfText(text.slice(0, 15000));
+      } catch (err) {
+        console.error('File read error:', err);
+        setRfpPdfName('');
+      }
+    }
     e.target.value = '';
+
+    // Auto-send analysis prompt when PDF is loaded
+    if (selected && profile) {
+      const autoMsg = { role: 'user', content: 'I have uploaded the RFP document. Please analyze it and give me a summary of the key requirements, eligibility criteria, deadlines, and whether this is a good fit for my company.' };
+      setMessages(prev => [...prev, autoMsg]);
+      setChatLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile: { ...profile, portfolio_pdf_text: profile.portfolio_pdf_text || '' },
+            rfp: selected,
+            rfp_pdf_text: text ? text.slice(0, 15000) : '',
+            portfolio_text: profile.portfolio_pdf_text || '',
+            chat_history: [autoMsg].map(m => ({ role: m.role, content: m.content })),
+          }),
+        });
+        const data = await res.json();
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      } catch {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Error analyzing the document.' }]);
+      } finally {
+        setChatLoading(false);
+      }
+    }
   };
 
   const maxScore = results.length > 0 ? Math.max(...results.map(r => r.score || 0)) : 1;
-
   const scorePct = (s) => maxScore > 0 ? Math.round((s / maxScore) * 100) : 0;
-
   const scoreColor = (s) => {
     const pct = scorePct(s);
     if (pct >= 70) return '#16a34a';
@@ -153,32 +180,25 @@ export default function ResultsPage() {
 
   const CloseIcon = () => (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 
   return (
     <div className="shell">
       <Navbar resultCount={results.length} />
-
       <div className={`content ${chatOpen ? 'with-chat' : 'no-chat'}`}>
         <div className="results-panel">
           <div className="results-header">
             <h1 className="results-title">Matched Opportunities</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <a
-                href="/profile"
-                style={{
-                  fontSize: '13px', fontWeight: 600, color: '#2563eb',
-                  textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '6px 14px', borderRadius: '8px',
-                  border: '1.5px solid #2563eb',
-                  background: '#eff6ff',
-                  transition: 'all 0.15s',
-                  letterSpacing: '0.01em',
-                }}
-              >
+              <a href="/profile" style={{
+                fontSize: '13px', fontWeight: 600, color: '#2563eb',
+                textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '6px 14px', borderRadius: '8px',
+                border: '1.5px solid #2563eb', background: '#eff6ff',
+                transition: 'all 0.15s', letterSpacing: '0.01em',
+              }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="4" y1="6" x2="20" y2="6" />
                   <line x1="4" y1="12" x2="20" y2="12" />
@@ -198,39 +218,24 @@ export default function ResultsPage() {
           )}
 
           {pagedResults.map((rfp, i) => (
-            <div
-              key={rfp.id || i}
+            <div key={rfp.id || i}
               className={`rfp-card ${selected?.id === rfp.id ? 'active' : ''}`}
               style={{ animationDelay: `${i * 0.04}s` }}
-              onClick={() => openChat(rfp)}
-            >
+              onClick={() => openChat(rfp)}>
               <div className="card-top">
                 <h3 className="card-title">{rfp.title || 'Untitled RFP'}</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span className="score-badge" style={{ color: scoreColor(rfp.score) }}>
                     {scorePct(rfp.score)}%
                   </span>
-                  <button
-                    onClick={(e) => toggleSave(rfp, e)}
-                    disabled={savingId === rfp.id}
+                  <button onClick={(e) => toggleSave(rfp, e)} disabled={savingId === rfp.id}
                     title={savedIds.has(rfp.id) ? 'Unsave' : 'Save'}
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer',
-                      padding: '4px 6px', borderRadius: '6px',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      opacity: savingId === rfp.id ? 0.4 : 1,
-                      transition: 'background 0.15s',
-                    }}
-                  >
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center', opacity: savingId === rfp.id ? 0.4 : 1 }}>
                     <svg width="18" height="18" viewBox="0 0 24 24"
                       fill={savedIds.has(rfp.id) ? '#2563eb' : 'none'}
                       stroke={savedIds.has(rfp.id) ? '#2563eb' : '#9ca3af'}
                       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                      style={{
-                        transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                        transform: animatingId === rfp.id ? 'scale(1.45)' : 'scale(1)',
-                      }}
-                    >
+                      style={{ transition: 'all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)', transform: animatingId === rfp.id ? 'scale(1.45)' : 'scale(1)' }}>
                       <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                     </svg>
                   </button>
@@ -243,18 +248,13 @@ export default function ResultsPage() {
                 </span>
                 {rfp.location && <span className="meta-pill">📍 {rfp.location}</span>}
                 {rfp.close_dt && <span className="meta-pill">Closes {rfp.close_dt}</span>}
-                {rfp.tags?.slice(0, 2).map(t => (
-                  <span key={t} className="meta-pill">{t}</span>
-                ))}
+                {rfp.tags?.slice(0, 2).map(t => <span key={t} className="meta-pill">{t}</span>)}
               </div>
 
               {rfp.description && <p className="card-desc">{rfp.description}</p>}
 
               {getRfpLink(rfp) && (
-                <a
-                  href={getRfpLink(rfp)}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <a href={getRfpLink(rfp)} target="_blank" rel="noopener noreferrer"
                   onClick={e => e.stopPropagation()}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -262,31 +262,21 @@ export default function ResultsPage() {
                     fontSize: '13px', fontWeight: 600, color: '#2563eb',
                     textDecoration: 'none', background: '#eff6ff',
                     border: '1px solid #bfdbfe', borderRadius: '6px', padding: '5px 12px',
-                  }}
-                >
+                  }}>
                   View / Download RFP
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
+                    <polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
                   </svg>
                 </a>
               )}
 
               <div className="card-scores">
-                {[
-                  ['Relevance', rfp.text_sim],
-                  ['Recency', rfp.recency],
-                  ['Tags', rfp.tag_match],
-                  ['Location', rfp.location_match],
-                ].map(([label, val]) => (
+                {[['Relevance', rfp.text_sim], ['Recency', rfp.recency], ['Tags', rfp.tag_match], ['Location', rfp.location_match]].map(([label, val]) => (
                   <div className="score-bar-wrap" key={label}>
                     <span className="score-bar-label">{label}</span>
                     <div className="score-bar-track">
-                      <div className="score-bar-fill" style={{
-                        width: `${Math.round((val || 0) * 100)}%`,
-                        background: scoreColor(val || 0),
-                      }} />
+                      <div className="score-bar-fill" style={{ width: `${Math.round((val || 0) * 100)}%`, background: scoreColor(val || 0) }} />
                     </div>
                   </div>
                 ))}
@@ -300,18 +290,13 @@ export default function ResultsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: '0.5rem', padding: '2rem 0 1rem', flexWrap: 'wrap',
-            }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '2rem 0 1rem', flexWrap: 'wrap' }}>
               <button onClick={() => goToPage(page - 1)} disabled={page === 1} style={{
-                padding: '0.5rem 1rem', borderRadius: '8px',
-                border: '1px solid #e5e7eb', background: 'white',
-                color: page === 1 ? '#d1d5db' : '#374151',
-                fontSize: '13px', fontWeight: 500,
-                cursor: page === 1 ? 'not-allowed' : 'pointer',
+                padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e5e7eb',
+                background: 'white', color: page === 1 ? '#d1d5db' : '#374151',
+                fontSize: '13px', fontWeight: 500, cursor: page === 1 ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.15s',
-              }}>Prev</button>
+              }}>← Prev</button>
 
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
                 <button key={n} onClick={() => goToPage(n)} style={{
@@ -326,13 +311,11 @@ export default function ResultsPage() {
               ))}
 
               <button onClick={() => goToPage(page + 1)} disabled={page === totalPages} style={{
-                padding: '0.5rem 1rem', borderRadius: '8px',
-                border: '1px solid #e5e7eb', background: 'white',
-                color: page === totalPages ? '#d1d5db' : '#374151',
-                fontSize: '13px', fontWeight: 500,
-                cursor: page === totalPages ? 'not-allowed' : 'pointer',
+                padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e5e7eb',
+                background: 'white', color: page === totalPages ? '#d1d5db' : '#374151',
+                fontSize: '13px', fontWeight: 500, cursor: page === totalPages ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', transition: 'all 0.15s',
-              }}>Next</button>
+              }}>Next →</button>
             </div>
           )}
         </div>
@@ -340,8 +323,6 @@ export default function ResultsPage() {
         {/* CHAT PANEL */}
         {chatOpen && selected && (
           <div className="chat-panel">
-
-            {/* Header */}
             <div className="chat-header">
               <div className="chat-header-text">
                 <p className="chat-rfp-title">{selected.title}</p>
@@ -352,7 +333,6 @@ export default function ResultsPage() {
               </button>
             </div>
 
-            {/* Messages */}
             <div className="chat-messages" ref={chatMessagesRef}>
               {messages.map((m, i) => (
                 <div key={i} className={`msg ${m.role}`}>
@@ -364,51 +344,54 @@ export default function ResultsPage() {
                 <div className="msg assistant">
                   <div className="msg-avatar">AI</div>
                   <div className="msg-bubble">
-                    <div className="typing">
-                      <div className="dot" /><div className="dot" /><div className="dot" />
-                    </div>
+                    <div className="typing"><div className="dot" /><div className="dot" /><div className="dot" /></div>
                   </div>
                 </div>
               )}
-              <div ref={chatEndRef} />
             </div>
 
-            {/* Footer */}
             <div className="chat-footer">
-              {rfpPdfText && (
+              {rfpPdfName && (
                 <div className="chat-pdf-banner">
-                  <span>PDF loaded</span>
-                  <button onClick={() => setRfpPdfText('')}>
-                    <CloseIcon />
-                  </button>
+                  <span>📄 {rfpPdfName}</span>
+                  <button onClick={() => { setRfpPdfText(''); setRfpPdfName(''); }}><CloseIcon /></button>
                 </div>
               )}
               <div className="chat-footer-row">
-                <label className="chat-upload-btn" title="Upload RFP PDF">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <button
+                  className="chat-upload-btn"
+                  title="Upload RFP PDF or text file"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ background: rfpPdfName ? '#eff6ff' : undefined, borderColor: rfpPdfName ? '#2563eb' : undefined }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke={rfpPdfName ? '#2563eb' : 'currentColor'}
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
-                  <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} />
-                </label>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.txt"
+                  style={{ display: 'none' }}
+                  onChange={handlePdfUpload}
+                />
                 <textarea
                   className="chat-input"
                   placeholder="Ask about this RFP…"
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-                  }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   rows={1}
                 />
-                <button className="chat-send" onClick={sendMessage} disabled={chatLoading || !input.trim()}>
+                <button className="chat-send" onClick={sendMessage} disabled={chatLoading || (!input.trim() && !rfpPdfText)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="19" x2="12" y2="5" />
-                    <polyline points="5 12 12 5 19 12" />
+                    <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
                   </svg>
                 </button>
               </div>
             </div>
-
           </div>
         )}
       </div>

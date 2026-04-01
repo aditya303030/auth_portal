@@ -18,8 +18,9 @@ export default function SavedPage() {
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [rfpPdfText, setRfpPdfText] = useState('');
+  const [rfpPdfName, setRfpPdfName] = useState('');
   const chatMessagesRef = useRef(null);
-  const chatEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const init = async () => {
@@ -28,9 +29,7 @@ export default function SavedPage() {
       const p = sessionStorage.getItem('vendor_profile');
       if (p) setProfile(JSON.parse(p));
       const { data: rows, error } = await supabase
-        .from('saved_rfps')
-        .select('*')
-        .eq('user_id', data.user.id)
+        .from('saved_rfps').select('*').eq('user_id', data.user.id)
         .order('saved_at', { ascending: false });
       if (!error && rows) setSaved(rows);
       setLoading(false);
@@ -58,10 +57,11 @@ export default function SavedPage() {
     }]);
     setChatOpen(true);
     setRfpPdfText('');
+    setRfpPdfName('');
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !profile || !selected) return;
+    if ((!input.trim() && !rfpPdfText) || !profile || !selected) return;
     const userMsg = { role: 'user', content: input };
     const next = [...messages, userMsg];
     setMessages(next);
@@ -91,16 +91,50 @@ export default function SavedPage() {
   const handlePdfUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8 = new Uint8Array(arrayBuffer);
-    const raw = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
-    const matches = [...raw.matchAll(/stream([\s\S]*?)endstream/g)];
-    const extracted = matches
-      .map(m => m[1].replace(/[^\x20-\x7E\n]/g, ' ').trim())
-      .filter(t => t.length > 20)
-      .join('\n\n');
-    setRfpPdfText(extracted || raw.replace(/[^\x20-\x7E\n]/g, ' ').slice(0, 15000));
+    setRfpPdfName(file.name);
+    let text = '';
+    try {
+      text = await file.text();
+      setRfpPdfText(text.slice(0, 15000));
+    } catch {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const uint8 = new Uint8Array(arrayBuffer);
+        const raw = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
+        text = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
+        setRfpPdfText(text.slice(0, 15000));
+      } catch (err) {
+        console.error('File read error:', err);
+        setRfpPdfName('');
+      }
+    }
     e.target.value = '';
+
+    // Auto-send analysis prompt when PDF is loaded
+    if (selected && profile) {
+      const autoMsg = { role: 'user', content: 'I have uploaded the RFP document. Please analyze it and give me a summary of the key requirements, eligibility criteria, deadlines, and whether this is a good fit for my company.' };
+      setMessages(prev => [...prev, autoMsg]);
+      setChatLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile: { ...profile, portfolio_pdf_text: profile.portfolio_pdf_text || '' },
+            rfp: selected,
+            rfp_pdf_text: text ? text.slice(0, 15000) : '',
+            portfolio_text: profile.portfolio_pdf_text || '',
+            chat_history: [autoMsg].map(m => ({ role: m.role, content: m.content })),
+          }),
+        });
+        const data = await res.json();
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      } catch {
+        setMessages(prev => [...prev, { role: 'assistant', content: 'Error analyzing the document.' }]);
+      } finally {
+        setChatLoading(false);
+      }
+    }
   };
 
   const maxScore = saved.length > 0 ? Math.max(...saved.map(r => r.rfp?.score || 0)) : 1;
@@ -114,8 +148,7 @@ export default function SavedPage() {
 
   const CloseIcon = () => (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 
@@ -123,8 +156,6 @@ export default function SavedPage() {
     <div className="shell">
       <Navbar />
       <div className={`content ${chatOpen ? 'with-chat' : 'no-chat'}`}>
-
-        {/* SAVED LIST */}
         <div className="results-panel">
           <div className="results-header">
             <h1 className="results-title">Saved RFPs</h1>
@@ -167,8 +198,7 @@ export default function SavedPage() {
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}>
                       <svg width="18" height="18" viewBox="0 0 24 24"
                         fill="#2563eb" stroke="#2563eb" strokeWidth="2"
-                        strokeLinecap="round" strokeLinejoin="round"
-                        style={{ transition: 'all 0.2s' }}>
+                        strokeLinecap="round" strokeLinejoin="round" style={{ transition: 'all 0.2s' }}>
                         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                       </svg>
                     </button>
@@ -199,10 +229,9 @@ export default function SavedPage() {
           })}
         </div>
 
-        {/* CHAT PANEL — identical to results page */}
+        {/* CHAT PANEL */}
         {chatOpen && selected && (
           <div className="chat-panel">
-
             <div className="chat-header">
               <div className="chat-header-text">
                 <p className="chat-rfp-title">{selected.title}</p>
@@ -224,48 +253,54 @@ export default function SavedPage() {
                 <div className="msg assistant">
                   <div className="msg-avatar">AI</div>
                   <div className="msg-bubble">
-                    <div className="typing">
-                      <div className="dot" /><div className="dot" /><div className="dot" />
-                    </div>
+                    <div className="typing"><div className="dot" /><div className="dot" /><div className="dot" /></div>
                   </div>
                 </div>
               )}
-              <div ref={chatEndRef} />
             </div>
 
             <div className="chat-footer">
-              {rfpPdfText && (
+              {rfpPdfName && (
                 <div className="chat-pdf-banner">
-                  <span>PDF loaded</span>
-                  <button onClick={() => setRfpPdfText('')}><CloseIcon /></button>
+                  <span>📄 {rfpPdfName}</span>
+                  <button onClick={() => { setRfpPdfText(''); setRfpPdfName(''); }}><CloseIcon /></button>
                 </div>
               )}
               <div className="chat-footer-row">
-                <label className="chat-upload-btn" title="Upload RFP PDF">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <button
+                  className="chat-upload-btn"
+                  title="Upload RFP PDF or text file"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ background: rfpPdfName ? '#eff6ff' : undefined, borderColor: rfpPdfName ? '#2563eb' : undefined }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke={rfpPdfName ? '#2563eb' : 'currentColor'}
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
                   </svg>
-                  <input type="file" accept="application/pdf" style={{ display: 'none' }} onChange={handlePdfUpload} />
-                </label>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.txt"
+                  style={{ display: 'none' }}
+                  onChange={handlePdfUpload}
+                />
                 <textarea
                   className="chat-input"
                   placeholder="Ask about this RFP…"
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-                  }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   rows={1}
                 />
-                <button className="chat-send" onClick={sendMessage} disabled={chatLoading || !input.trim()}>
+                <button className="chat-send" onClick={sendMessage} disabled={chatLoading || (!input.trim() && !rfpPdfText)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="19" x2="12" y2="5" />
-                    <polyline points="5 12 12 5 19 12" />
+                    <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
                   </svg>
                 </button>
               </div>
             </div>
-
           </div>
         )}
       </div>
