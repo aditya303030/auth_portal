@@ -15,6 +15,38 @@ const CERTS = [
   '8(a)', 'HUBZone', 'SDVOSB', 'WOSB', 'VOSB', 'SDB', 'SBA Certified',
 ];
 
+function toCsvString(value) {
+  if (Array.isArray(value)) {
+    return value.join(', ');
+  }
+  return value || '';
+}
+
+function toStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => String(item).trim()).filter(Boolean);
+}
+
+function toSafeString(value) {
+  return String(value ?? '').trim();
+}
+
+function normalizePastPerformance(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => ({
+    client: toSafeString(item?.client),
+    project_title: toSafeString(item?.project_title),
+    scope: toSafeString(item?.scope),
+    completion_year: Number(item?.completion_year) || 0,
+    contract_value: toSafeString(item?.contract_value),
+  }));
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -47,20 +79,6 @@ export default function DashboardPage() {
     portfolio_pdf_name: '',
   });
 
-  const toCsvString = (value) => {
-    if (Array.isArray(value)) {
-      return value.join(', ');
-    }
-    return value || '';
-  };
-
-  const toStringArray = (value) => {
-    if (!Array.isArray(value)) {
-      return [];
-    }
-    return value.map((item) => String(item).trim()).filter(Boolean);
-  };
-
   useEffect(() => {
     const loadProfile = async () => {
       const { data } = await supabase.auth.getUser();
@@ -87,7 +105,7 @@ export default function DashboardPage() {
             location_keywords: parsed.location_keywords || parsed.location || prev.location_keywords,
             core_competencies: toCsvString(parsed.core_competencies || prev.core_competencies),
             differentiators: toCsvString(parsed.differentiators || prev.differentiators),
-            past_performance: Array.isArray(parsed.past_performance) ? parsed.past_performance : prev.past_performance,
+            past_performance: normalizePastPerformance(parsed.past_performance || prev.past_performance),
             contact_name: parsed.contact_name || authUser.user_metadata?.full_name || prev.contact_name,
             contact_email: parsed.contact_email || authUser.email || prev.contact_email,
           }));
@@ -122,7 +140,7 @@ export default function DashboardPage() {
           core_competencies: Array.isArray(info.core_competencies) ? info.core_competencies.join(', ') : info.core_competencies || prev.core_competencies,
           company_description: info.company_description || prev.company_description,
           differentiators: info.differentiators || prev.differentiators,
-          past_performance: Array.isArray(info.past_performance) ? info.past_performance : prev.past_performance,
+          past_performance: normalizePastPerformance(info.past_performance || prev.past_performance),
           portfolio_pdf_text: info.portfolio_pdf_text || prev.portfolio_pdf_text,
         }));
       } catch (fetchErr) {
@@ -185,12 +203,27 @@ export default function DashboardPage() {
 
   const buildRecommendationPayload = () => ({
     ...form,
+    legal_name: toSafeString(form.legal_name),
+    website: toSafeString(form.website),
+    contact_name: toSafeString(form.contact_name),
+    contact_email: toSafeString(form.contact_email),
+    contact_phone: toSafeString(form.contact_phone),
+    hq_location: toSafeString(form.hq_location),
+    service_areas: toSafeString(form.service_areas),
+    uei: toSafeString(form.uei),
+    cage: toSafeString(form.cage),
+    company_description: toSafeString(form.company_description),
+    location_keywords: toSafeString(form.location_keywords),
+    portfolio_pdf_text: toSafeString(form.portfolio_pdf_text),
+    certifications: toStringArray(form.certifications),
+    selected_tags: toStringArray(form.selected_tags),
     naics_codes: toList(form.naics_codes),
     core_competencies: toList(form.core_competencies),
     differentiators: toList(form.differentiators),
+    past_performance: normalizePastPerformance(form.past_performance),
     years_in_business: Number(form.years_in_business) || 0,
-    max_age_days: Number(form.max_age_days),
-    top_k: Number(form.top_k),
+    max_age_days: Number(form.max_age_days) || 60,
+    top_k: Number(form.top_k) || 10,
   });
 
   const saveProfile = async (payload) => {
