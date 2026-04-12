@@ -90,50 +90,55 @@ export default function SavedPage() {
 
   const handlePdfUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !profile || !selected) return;
+
     setRfpPdfName(file.name);
-    let text = '';
-    try {
-      text = await file.text();
-      setRfpPdfText(text.slice(0, 15000));
-    } catch {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8 = new Uint8Array(arrayBuffer);
-        const raw = new TextDecoder('utf-8', { fatal: false }).decode(uint8);
-        text = raw.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
-        setRfpPdfText(text.slice(0, 15000));
-      } catch (err) {
-        console.error('File read error:', err);
-        setRfpPdfName('');
-      }
-    }
     e.target.value = '';
 
-    // Auto-send analysis prompt when PDF is loaded
-    if (selected && profile) {
-      const autoMsg = { role: 'user', content: 'I have uploaded the RFP document. Please analyze it and give me a summary of the key requirements, eligibility criteria, deadlines, and whether this is a good fit for my company.' };
-      setMessages(prev => [...prev, autoMsg]);
-      setChatLoading(true);
-      try {
-        const res = await fetch(`${API_URL}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            profile: { ...profile, portfolio_pdf_text: profile.portfolio_pdf_text || '' },
-            rfp: selected,
-            rfp_pdf_text: text ? text.slice(0, 15000) : '',
-            portfolio_text: profile.portfolio_pdf_text || '',
-            chat_history: [autoMsg].map(m => ({ role: m.role, content: m.content })),
-          }),
-        });
-        const data = await res.json();
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-      } catch {
-        setMessages(prev => [...prev, { role: 'assistant', content: 'Error analyzing the document.' }]);
-      } finally {
-        setChatLoading(false);
+    const uploadNotice = {
+      role: 'user',
+      content: `📄 Uploaded file: ${file.name}${input.trim() ? `\n\n${input.trim()}` : ''}`,
+    };
+
+    const nextMessages = [...messages, uploadNotice];
+    setMessages(nextMessages);
+    setChatLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('profile', JSON.stringify({
+        ...profile,
+        portfolio_pdf_text: profile.portfolio_pdf_text || '',
+      }));
+      formData.append('rfp', JSON.stringify(selected));
+      formData.append('chat_history', JSON.stringify(
+        messages.map(m => ({ role: m.role, content: m.content }))
+      ));
+      formData.append('portfolio_text', profile.portfolio_pdf_text || '');
+      formData.append('message', input.trim());
+      formData.append('file', file);
+
+      setInput('');
+
+      const res = await fetch(`${API_URL}/api/chat/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Upload failed');
       }
+
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: err.message || 'Error analyzing the document.' }
+      ]);
+    } finally {
+      setChatLoading(false);
     }
   };
 
