@@ -630,8 +630,7 @@ export default function DashboardPage() {
 
       // Fetch recommendations
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const res = await fetch(`${apiUrl}/api/recommend`, {
+        const res = await fetch(getApiUrl('/api/recommend'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(profile),

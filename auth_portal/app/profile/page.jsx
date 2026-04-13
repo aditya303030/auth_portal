@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/config';
 import Navbar from '@/components/Navbar';
 
 const TAGS = [
@@ -187,8 +188,7 @@ export default function ProfilePage() {
       sessionStorage.removeItem('rfp_results');
 
       // Fetch new recommendations
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${apiUrl}/api/recommend`, {
+      const res = await fetch(getApiUrl('/api/recommend'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profile),

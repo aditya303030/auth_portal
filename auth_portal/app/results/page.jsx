@@ -3,9 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/config';
 import Navbar from '@/components/Navbar';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const HEX = '#7b0300';
 const HEX_LIGHT = '#fdf2f2';
 const HEX_BORDER = '#f5b8b8';
@@ -183,7 +182,7 @@ export default function ResultsPage() {
     setChatLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/chat`, {
+      const res = await fetch(getApiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -249,7 +248,7 @@ export default function ResultsPage() {
 
       setInput('');
 
-      const res = await fetch(`${API_URL}/api/chat/upload`, {
+      const res = await fetch(getApiUrl('/api/chat/upload'), {
         method: 'POST',
         body: formData,
       });

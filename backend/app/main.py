@@ -22,9 +22,6 @@ def get_allowed_origins():
     if frontend_url and frontend_url not in origins:
         origins.append(frontend_url)
 
-    if not origins:
-        origins = ["http://localhost:3000"]
-
     return origins
 
 app.add_middleware(

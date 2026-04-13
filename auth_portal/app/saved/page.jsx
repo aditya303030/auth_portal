@@ -3,9 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getApiUrl } from '@/lib/config';
 import Navbar from '@/components/Navbar';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function SavedPage() {
   const router = useRouter();
@@ -68,7 +67,7 @@ export default function SavedPage() {
     setInput('');
     setChatLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/chat`, {
+      const res = await fetch(getApiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -120,7 +119,7 @@ export default function SavedPage() {
 
       setInput('');
 
-      const res = await fetch(`${API_URL}/api/chat/upload`, {
+      const res = await fetch(getApiUrl('/api/chat/upload'), {
         method: 'POST',
         body: formData,
       });
