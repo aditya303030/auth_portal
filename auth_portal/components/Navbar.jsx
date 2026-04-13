@@ -71,7 +71,7 @@ export default function Navbar({ resultCount }) {
         .navbar-brand img {
           display: block;
           width: auto;
-          height: 40px;
+          height: 32px;
         }
 
         .navbar-links {
@@ -164,19 +164,19 @@ export default function Navbar({ resultCount }) {
               target="_blank" rel="noopener noreferrer"
             >
               <Image
-                src="/black-brand-wordmark-navbar.png"
+                src="/black-brand-wordmark-navbar-v2.png"
                 alt="Black Brand"
-                width={1240}
-                height={184}
+                width={1264}
+                height={286}
               />
             </a>
           ) : (
             <span className="navbar-brand">
               <Image
-                src="/black-brand-wordmark-navbar.png"
+                src="/black-brand-wordmark-navbar-v2.png"
                 alt="Black Brand"
-                width={1240}
-                height={184}
+                width={1264}
+                height={286}
               />
             </span>
           )}
