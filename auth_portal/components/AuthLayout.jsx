@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 
-export default function AuthLayout({ children, logo = 'circle' }) {
+export default function AuthLayout({ children, logo = 'circle', compactBrand = false }) {
   const logoProps = logo === 'wordmark'
     ? {
         className: 'brand-wordmark',
@@ -26,7 +26,7 @@ export default function AuthLayout({ children, logo = 'circle' }) {
         <div className="grid-overlay" />
       </div>
       <div className="auth-card">
-        <div className="brand">
+        <div className={`brand ${compactBrand ? 'brand-compact' : ''}`}>
           <Image
             {...logoProps}
             alt="Black Brand"

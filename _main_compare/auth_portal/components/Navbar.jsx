@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import Image from 'next/image';
 
 export default function Navbar({ resultCount }) {
   const router = useRouter();
@@ -60,19 +59,16 @@ export default function Navbar({ resultCount }) {
         }
 
         .navbar-brand {
-          display: inline-flex;
-          align-items: center;
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #2563eb;
           text-decoration: none;
           transition: opacity 0.15s;
           white-space: nowrap;
         }
         .navbar-brand:hover { opacity: 0.7; }
-
-        .navbar-brand img {
-          display: block;
-          width: auto;
-          height: 34px;
-        }
 
         .navbar-links {
           display: flex;
@@ -163,22 +159,10 @@ export default function Navbar({ resultCount }) {
               href={companyWebsite.startsWith('http') ? companyWebsite : `https://${companyWebsite}`}
               target="_blank" rel="noopener noreferrer"
             >
-              <Image
-                src="/black-brand-wordmark-cropped.png"
-                alt="Black Brand"
-                width={1528}
-                height={523}
-              />
+              Black Brand
             </a>
           ) : (
-            <span className="navbar-brand">
-              <Image
-                src="/black-brand-wordmark-cropped.png"
-                alt="Black Brand"
-                width={1528}
-                height={523}
-              />
-            </span>
+            <span className="navbar-brand">Black Brand</span>
           )}
 
           <div className="navbar-links">

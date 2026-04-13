@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<AuthLayout logo="wordmark" compactBrand />}>
+    <Suspense fallback={<AuthLayout />}>
       <LoginContent />
     </Suspense>
   );
@@ -79,7 +79,7 @@ function LoginContent() {
   };
 
   return (
-    <AuthLayout logo="wordmark" compactBrand>
+    <AuthLayout>
       <div className="auth-header">
         <h1>Welcome back</h1>
         <p>Sign in to your account to continue</p>
