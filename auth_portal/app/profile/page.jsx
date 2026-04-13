@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 
@@ -17,13 +17,16 @@ const CERTS = [
 
 export default function ProfilePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState(() => (
-    searchParams.get('tab') === 'preferences' ? 3 : 1
-  ));
+  const [step, setStep] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 1;
+    }
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') === 'preferences' ? 3 : 1;
+  });
   const [userId, setUserId] = useState(null);
 
   const [form, setForm] = useState({
