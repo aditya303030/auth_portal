@@ -21,6 +21,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [step, setStep] = useState(() => {
     if (typeof window === 'undefined') {
       return 1;
@@ -128,6 +129,7 @@ export default function ProfilePage() {
   const handleSaveAndSearch = async () => {
     setSearching(true);
     setError('');
+    setSuccess('');
     try {
       // Save to Supabase
       await supabase.from('user_information').update({
@@ -197,6 +199,7 @@ export default function ProfilePage() {
       if (res.ok) {
         const data = await res.json();
         sessionStorage.setItem('rfp_results', JSON.stringify(data.results));
+        setSuccess('Profile updated successfully.');
       }
 
       router.push('/results');

@@ -164,19 +164,19 @@ export default function Navbar({ resultCount }) {
               target="_blank" rel="noopener noreferrer"
             >
               <Image
-                src="/black-brand-wordmark-cropped.png"
+                src="/black-brand-wordmark-navbar.png"
                 alt="Black Brand"
-                width={1528}
-                height={523}
+                width={1240}
+                height={184}
               />
             </a>
           ) : (
             <span className="navbar-brand">
               <Image
-                src="/black-brand-wordmark-cropped.png"
+                src="/black-brand-wordmark-navbar.png"
                 alt="Black Brand"
-                width={1528}
-                height={523}
+                width={1240}
+                height={184}
               />
             </span>
           )}
