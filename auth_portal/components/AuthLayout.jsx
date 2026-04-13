@@ -1,7 +1,5 @@
 'use client';
 
-import Image from 'next/image';
-
 export default function AuthLayout({ children }) {
   return (
     <div className="auth-root">
@@ -13,14 +11,8 @@ export default function AuthLayout({ children }) {
       </div>
       <div className="auth-card">
         <div className="brand">
-          <Image
-            src="/black-brand-wordmark.png"
-            alt="BLACK BRAND"
-            width={220}
-            height={54}
-            priority
-            className="brand-wordmark"
-          />
+          <span className="brand-icon">⬡</span>
+          <span className="brand-name">Portal</span>
         </div>
         {children}
       </div>
