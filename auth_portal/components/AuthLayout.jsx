@@ -6,9 +6,9 @@ export default function AuthLayout({ children, logo = 'circle', compactBrand = f
   const logoProps = logo === 'wordmark'
     ? {
         className: 'brand-wordmark',
-        src: '/black-brand-wordmark.png',
-        width: 730,
-        height: 114,
+        src: '/black-brand-wordmark-cropped.png',
+        width: 1528,
+        height: 523,
       }
     : {
         className: 'brand-emblem',

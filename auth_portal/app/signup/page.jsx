@@ -172,7 +172,7 @@ export default function SignupPage() {
   );
 
   return (
-    <AuthLayout>
+    <AuthLayout logo="wordmark" compactBrand>
       <div className="auth-header">
         <h1>Create account</h1>
         <p>Start with the essentials for your company profile</p>

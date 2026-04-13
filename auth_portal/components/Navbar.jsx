@@ -71,7 +71,7 @@ export default function Navbar({ resultCount }) {
         .navbar-brand img {
           display: block;
           width: auto;
-          height: 34px;
+          height: 40px;
         }
 
         .navbar-links {

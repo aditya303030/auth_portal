@@ -212,7 +212,7 @@ input, textarea, select { font-family: inherit; }
 }
 .brand-wordmark {
   display: block;
-  width: min(100%, 240px);
+  width: min(100%, 300px);
   height: auto;
 }
 
