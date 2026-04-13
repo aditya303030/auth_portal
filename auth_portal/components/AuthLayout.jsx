@@ -1,6 +1,22 @@
 'use client';
 
-export default function AuthLayout({ children }) {
+import Image from 'next/image';
+
+export default function AuthLayout({ children, logo = 'circle' }) {
+  const logoProps = logo === 'wordmark'
+    ? {
+        className: 'brand-wordmark',
+        src: '/black-brand-wordmark.png',
+        width: 730,
+        height: 114,
+      }
+    : {
+        className: 'brand-emblem',
+        src: '/black-brand-circle-wordmark.png',
+        width: 824,
+        height: 824,
+      };
+
   return (
     <div className="auth-root">
       <div className="auth-bg">
@@ -11,8 +27,11 @@ export default function AuthLayout({ children }) {
       </div>
       <div className="auth-card">
         <div className="brand">
-          <span className="brand-icon">⬡</span>
-          <span className="brand-name">Portal</span>
+          <Image
+            {...logoProps}
+            alt="Black Brand"
+            priority
+          />
         </div>
         {children}
       </div>
