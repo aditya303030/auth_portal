@@ -49,10 +49,27 @@ async def chat_upload(
             for item in json.loads(chat_history)
         ]
         file_bytes = await file.read()
-        rfp_pdf_text = pdf_bytes_to_text(file_bytes)
+        filename = (file.filename or "").lower()
+        if filename.endswith(".pdf"):
+            rfp_pdf_text = pdf_bytes_to_text(file_bytes)
+        else:
+            rfp_pdf_text = file_bytes.decode("utf-8", errors="ignore").strip()
 
-        if message.strip():
-            parsed_history.append(ChatMessageSchema(role="user", content=message.strip()))
+        if not rfp_pdf_text.strip():
+            return {
+                "reply": (
+                    "I couldn't extract readable text from that upload. If this is a scanned "
+                    "PDF or image-only document, please upload a text-based PDF or paste the "
+                    "relevant text."
+                ),
+                "rfp_pdf_text": "",
+            }
+
+        user_message = message.strip() or (
+            "I uploaded a document. Please analyze it and summarize the key requirements, "
+            "eligibility criteria, deadlines, risks, and whether it is a good fit for my company."
+        )
+        parsed_history.append(ChatMessageSchema(role="user", content=user_message))
 
         reply = generate_reply(
             profile=parsed_profile,
@@ -64,6 +81,6 @@ async def chat_upload(
             ],
         )
 
-        return {"reply": reply}
+        return {"reply": reply, "rfp_pdf_text": rfp_pdf_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

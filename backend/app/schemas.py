@@ -67,6 +67,7 @@ class ChatRequestSchema(BaseModel):
 
 class ChatResponseSchema(BaseModel):
     reply: str
+    rfp_pdf_text: str = ""
 
 
 class RecommendResponseSchema(BaseModel):

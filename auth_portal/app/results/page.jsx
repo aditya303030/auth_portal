@@ -259,6 +259,7 @@ export default function ResultsPage() {
         throw new Error(data.detail || 'Upload failed');
       }
 
+      setRfpPdfText(data.rfp_pdf_text || '');
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: data.reply },
